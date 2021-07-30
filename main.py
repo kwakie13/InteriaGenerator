@@ -5,23 +5,22 @@ import sys, os
 from PyQt5 import Qt, QtGui, QtWidgets
 from PyQt5.Qt import *
 
+from heat_sets import *
+
 buttons = {}
+
 helmets_unicode = {"R": u'🔴', "B": u'🔵', "W": u'⚪', "Y": u'🟡'}
 helmets = {"R": helmets_unicode["R"].encode('utf8'), "B": helmets_unicode["B"].encode('utf8'),
            "W": helmets_unicode["W"].encode('utf8'), "Y": helmets_unicode["Y"].encode('utf8')}
-
-heat_set_1 = {1: "Y,1,R,9,W,3,B,11", 2: "R,15,W,6,B,14,Y,7", 3: "Y,5,B,12,W,2,R,13", 4: "B,14,Y,4,R,10,W,6", 5: "R,11,W,3,B,12,Y,4",
-              6: "R,13,W,2,B,15,Y,1", 7: "W,7,B,10,Y,5,R,9", 8: "W,3,R,13,Y,4,B,14", 9: "R,9,Y,1,B,10,W,2", 10: "W,6,R,11,Y,5,B,12",
-              11: "B,12,W,4,R,9,Y,1", 12: "Y,2,B,15,W,7,R,11", 13: "B,10,Y,5,R,13,W,3", 14: "Y,17,R,17,W,17,B,17", 15: "R,17,Y,17,B,17,W,17"}
-
-heat_set_2 = {1: "R,9,Y,1,B,11,W,3", 2: "W,6,R,15,Y,7,B,14", 3: "B,12,Y,5,R,13,W,2", 4: "Y,4,B,14,W,6,R,10", 5: "W,3,R,11,Y,4,B,12",
-              6: "W,2,R,13,Y,1,B,15", 7: "B,10,W,7,R,9,Y,5", 8: "R,13,W,3,B,14,Y,4", 9: "Y,1,R,9,W,2,B,10", 10: "R,11,W,6,B,12,Y,5",
-              11: "W,4,B,12,Y,1,R,9", 12: "B,15,Y,2,R,11,W,7", 13: "Y,5,B,10,W,3,R,13", 14: "R,17,Y,17,B,17,W,17", 15: "Y,17,R,17,W,17,B,17"}
 
 
 class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
+
+        self.options = None
+        self.riders = []
+        self.markers = None
 
         self.interface()
         self.setWindowTitle("Generator do live")
@@ -30,47 +29,65 @@ class MainWindow(QtWidgets.QWidget):
 
         self.setWindowFlags(Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint)  # blocking window maximizing
 
-        self.riders = []
-
         self.centerWindow()
         self.show()
 
     def interface(self):
         grid = QGridLayout(self)
 
-        away_team = self.team_table(1)
-        host_team = self.team_table(9)
+        away_team = self.team_table(1, "Goście")
+        host_team = self.team_table(9, "Gospodarze")
 
         grid.addWidget(away_team, 0, 0)
         grid.addWidget(host_team, 0, 1)
 
+        self.options = QComboBox()
+
+        self.options.addItem("PGE Ekstraliga - zestaw 1", heat_set_PL_1)
+        self.options.addItem("PGE Ekstraliga - zestaw 2", heat_set_PL_2)
+        self.options.addItem("eWinner 1. Liga - zestaw 1", heat_set_PL_1)
+        self.options.addItem("eWinner 1. Liga - zestaw 2", heat_set_PL_2)
+        self.options.addItem("2. Liga Żużlowa - zestaw 1", heat_set_PL_1)
+        self.options.addItem("2. Liga Żużlowa - zestaw 2", heat_set_PL_2)
+        self.options.addItem("Bauhaus-Ligan", heat_set_SWE)
+        self.options.addItem("Zawody indywidualne", heat_set_IND)
+
+        self.options.setCurrentIndex(0)  # set default option
+
+        grid.addWidget(self.options, 1, 0)
+
         proceed_button = QPushButton()
-        proceed_button.clicked.connect(self.whenClicked)
+        proceed_button.clicked.connect(self.generateFile)
         proceed_button.setText("Generuj")
-        grid.addWidget(proceed_button, 1, 0, 1, 2)
+        grid.addWidget(proceed_button, 1, 1)
 
         self.setLayout(grid)
 
     @staticmethod
-    def team_table(start_num):  # 0 - away, 1 - host
+    def team_table(start_num, team_name):  # 0 - away, 1 - host
         group = QGroupBox()
         team = QGridLayout()
 
-        for i in range(8):
+        name = QLabel()
+        name.setText(team_name)
+        name.setAlignment(Qt.AlignCenter)
+        team.addWidget(name, 0, 0, 1, 2)
+
+        for i in range(8):  # generating labels for team
             label = QLabel()
             label.setText(str(start_num + i))
             label.setAlignment(Qt.AlignCenter)
 
-            team.addWidget(label, i, 0)
+            team.addWidget(label, i + 1, 0)
 
-        for i in range(8):
+        for i in range(8):  # generating edit boxes for team
             button_id = str(start_num + i)
             line = QLineEdit()
             line.setObjectName(button_id)
             MainWindow.saveButton(line)
             line.setAlignment(Qt.AlignCenter)
 
-            team.addWidget(line, i, 1)
+            team.addWidget(line, i + 1, 1)
 
         group.setLayout(team)
 
@@ -108,20 +125,38 @@ class MainWindow(QtWidgets.QWidget):
     def keyPressEvent(self, e):  # exit with Escape button
         if e.key() == Qt.Key_Escape:
             self.close()
+        # elif e.key() == Qt.Key_Enter:
+        #     self.generateFile()
 
-    def whenClicked(self):
+    def fetchRiders(self):
         for i in range(1, 17, 1):
             self.riders.append(MainWindow.findButton(str(i)).text())
         self.riders.append("")
 
-        file = open('generated.txt', 'wb')
+    def generateFile(self):
+        self.fetchRiders()
 
-        file.write("===== Zestaw 1 =====\n\n".encode("utf-8"))
-        self.writeHeatsToFile(file, heat_set_1)
-        file.write("===== Zestaw 2 =====\n\n".encode("utf-8"))
-        self.writeHeatsToFile(file, heat_set_2)
-        file.write("===== Składy drużyn =====\n\n".encode("utf-8"))
-        self.writeLineUps(file, self.riders)
+        heat_set = self.options.currentData()  # get heat set for selected event (tournament)
+
+        file = open('generated.txt', 'wb')
+        file.write("===== Biegi =====\n\n".encode("utf-8"))
+
+        if str(heat_set[0]) == "PL":
+            if self.options.currentIndex() % 2 == 0:  # Poland - heat set ver. 1
+                self.writeHeatsFromHeatSet(file, self.options.currentData())
+
+            else:  # Poland - heat set ver. 2
+                self.writeHeatsFromHeatSet(file, self.options.currentData())
+
+            self.writeLineUps(file, self.riders, self.options.currentIndex())
+
+        elif heat_set[0] == "SWE":
+            self.writeHeatsFromHeatSet(file, self.options.currentData())
+            self.writeLineUps(file, self.riders, self.options.currentIndex())
+
+        elif heat_set[0] == "IND":
+            self.writeHeatsFromHeatSet(file, self.options.currentData())
+            self.writeLineUps(file, self.riders, self.options.currentIndex())
 
         file.close()
 
@@ -134,8 +169,8 @@ class MainWindow(QtWidgets.QWidget):
 
         message.exec()
 
-    def writeHeatsToFile(self, file, heat_sets):
-        for i in range(1, 16, 1):
+    def writeHeatsFromHeatSet(self, file, heat_sets):
+        for i in range(1, len(heat_sets), 1):
             heat_set = heat_sets[i].split(",")
             file.write(("Bieg {heat}\n{helmetA} {riderA}\n{helmetB} {riderB}\n{helmetC} {riderC}\n{helmetD} {riderD}\n\n".format(heat=i,
                                helmetA=helmets_unicode[heat_set[0]], riderA=self.riders[int(heat_set[1]) - 1],
@@ -143,15 +178,50 @@ class MainWindow(QtWidgets.QWidget):
                                helmetC=helmets_unicode[heat_set[4]], riderC=self.riders[int(heat_set[5]) - 1],
                                helmetD=helmets_unicode[heat_set[6]], riderD=self.riders[int(heat_set[7]) - 1]).encode("utf-8")))
 
+    def writeLineUps(self, file, riders, index):
+        if index <= 6:  # league
+            file.write("===== Składy drużyn =====\n\n".encode("utf-8"))
+
+            if index <= 5:  # Polish
+                if index >= 4:  # second Polish
+                    self.markers = [(0, 7), (8, 15)]
+                else:  # extra and first Polish
+                    self.markers = [(0, 8), (8, 16)]
+                self.writeLineUpPoland(file, riders, self.markers)
+
+            elif index == 6:  # Swedish
+                self.markers = [(0, 7), (8, 15)]
+                self.writeLineUpSweden(file, riders, self.markers)
+
+        elif index == 7:  # individual
+            file.write("===== Lista startowa =====\n\n".encode("utf-8"))
+            self.markers = [(0, 16)]
+            self.writeLineUpIndividual(file, riders, self.markers)
+
     @staticmethod
-    def writeLineUps(file, riders):
-        for i in range(8, 16, 1):
-            file.write("{number}. {rider}\n".format(number=i+1, rider=riders[i]).encode("utf-8"))
+    def writeLineUpPoland(file, riders, markers):
+        for i in range(markers[1][0], markers[1][1], 1):  # hosts
+            file.write("{number}. {rider}\n".format(number=i + 1, rider=riders[i]).encode("utf-8"))
 
         file.write("\n".encode("utf-8"))
 
-        for i in range(0, 8, 1):
-            file.write("{number}. {rider}\n".format(number=i+1, rider=riders[i]).encode("utf-8"))
+        for i in range(markers[0][0], markers[0][1], 1):  # away
+            file.write("{number}. {rider}\n".format(number=i + 1, rider=riders[i]).encode("utf-8"))
+
+    @staticmethod
+    def writeLineUpSweden(file, riders, markers):
+        for i in range(markers[1][0], markers[1][1], 1):  # hosts
+            file.write("{number}. {rider}\n".format(number=i - 7, rider=riders[i]).encode("utf-8"))  # i - 7 -> hosts numbers 1-7
+
+        file.write("\n".encode("utf-8"))
+
+        for i in range(markers[0][0], markers[0][1], 1):  # away
+            file.write("{number}. {rider}\n".format(number=i + 1, rider=riders[i]).encode("utf-8"))
+
+    @staticmethod
+    def writeLineUpIndividual(file, riders, markers):
+        for i in range(markers[0][0], markers[0][1], 1):  # hosts
+            file.write("{number}. {rider}\n".format(number=i + 1, rider=riders[i]).encode("utf-8"))
 
     @staticmethod
     def resource_path(relative_path):
