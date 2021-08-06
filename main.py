@@ -1,17 +1,14 @@
 from __future__ import unicode_literals
 
-import sys, os
+import os
+import sys
 
 from PyQt5 import Qt, QtGui, QtWidgets
 from PyQt5.Qt import *
 
-from heat_sets import *
+from dictionaries import *
 
 buttons = {}
-
-helmets_unicode = {"R": u'🔴', "B": u'🔵', "W": u'⚪', "Y": u'🟡'}
-helmets = {"R": helmets_unicode["R"].encode('utf8'), "B": helmets_unicode["B"].encode('utf8'),
-           "W": helmets_unicode["W"].encode('utf8'), "Y": helmets_unicode["Y"].encode('utf8')}
 
 
 class MainWindow(QtWidgets.QWidget):
@@ -20,7 +17,6 @@ class MainWindow(QtWidgets.QWidget):
 
         self.options = None
         self.riders = []
-        self.markers = None
 
         self.file_number = 1
 
@@ -166,48 +162,32 @@ class MainWindow(QtWidgets.QWidget):
                                helmetD=helmets_unicode[heat_set[6]], riderD=self.riders[int(heat_set[7]) - 1]).encode("utf-8")))
 
     def writeLineUps(self, file, riders, index):
-        if index <= 6:  # league
-            file.write("===== Składy drużyn =====\n\n".encode("utf-8"))
-
-            if index <= 5:  # Polish
-                if index >= 4:  # second Polish
-                    self.markers = [(0, 7), (8, 15)]
-                else:  # extra and first Polish
-                    self.markers = [(0, 8), (8, 16)]
-                self.writeLineUpPoland(file, riders, self.markers)
-
-            elif index == 6:  # Swedish
-                self.markers = [(0, 7), (8, 15)]
-                self.writeLineUpSweden(file, riders, self.markers)
-
-        elif index == 7:  # individual
+        if index == 7:
             file.write("===== Lista startowa =====\n\n".encode("utf-8"))
-            self.markers = [(0, 16)]
-            self.writeLineUpIndividual(file, riders, self.markers)
+            self.writeLineUpIndividual(file, riders)
+        else:
+            file.write("===== Składy drużyn =====\n\n".encode("utf-8"))
+            self.writeLineUpTeamMeeting(file, riders, index)
 
     @staticmethod
-    def writeLineUpPoland(file, riders, markers):
-        for i in range(markers[1][0], markers[1][1], 1):  # hosts
-            file.write("{number}. {rider}\n".format(number=i + 1, rider=riders[i]).encode("utf-8"))
+    def writeLineUpTeamMeeting(file, riders, index):
+        indicator = league_numbers[index]
+        starting_number = indicator[5]
+
+        for i in range(indicator[2], indicator[3], 1):  # hosts
+            file.write("{number}. {rider}\n".format(number=starting_number, rider=riders[i]).encode("utf-8"))
+            starting_number += 1
 
         file.write("\n".encode("utf-8"))
+        starting_number = indicator[4]
 
-        for i in range(markers[0][0], markers[0][1], 1):  # away
-            file.write("{number}. {rider}\n".format(number=i + 1, rider=riders[i]).encode("utf-8"))
-
-    @staticmethod
-    def writeLineUpSweden(file, riders, markers):
-        for i in range(markers[1][0], markers[1][1], 1):  # hosts
-            file.write("{number}. {rider}\n".format(number=i - 7, rider=riders[i]).encode("utf-8"))  # i - 7 -> hosts numbers 1-7
-
-        file.write("\n".encode("utf-8"))
-
-        for i in range(markers[0][0], markers[0][1], 1):  # away
-            file.write("{number}. {rider}\n".format(number=i + 1, rider=riders[i]).encode("utf-8"))
+        for i in range(indicator[0], indicator[1], 1):  # away
+            file.write("{number}. {rider}\n".format(number=starting_number, rider=riders[i]).encode("utf-8"))
+            starting_number += 1
 
     @staticmethod
-    def writeLineUpIndividual(file, riders, markers):
-        for i in range(markers[0][0], markers[0][1], 1):  # hosts
+    def writeLineUpIndividual(file, riders):
+        for i in range(0, 16, 1):  # hosts
             file.write("{number}. {rider}\n".format(number=i + 1, rider=riders[i]).encode("utf-8"))
 
     @staticmethod
