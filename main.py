@@ -22,6 +22,8 @@ class MainWindow(QtWidgets.QWidget):
         self.riders = []
         self.markers = None
 
+        self.file_number = 1
+
         self.interface()
         self.setWindowTitle("Generator do live")
         self.setWindowIcon(QtGui.QIcon(self.resource_path("Logo.png")))
@@ -127,36 +129,23 @@ class MainWindow(QtWidgets.QWidget):
             self.close()
 
     def fetchRiders(self):
+        self.riders = []
         for i in range(1, 17, 1):
             self.riders.append(MainWindow.findButton(str(i)).text())
-        self.riders.append("")
+        self.riders.append("")  # empty rider for generating nominated races and semifinals
 
     def generateFile(self):
         self.fetchRiders()
 
-        heat_set = self.options.currentData()  # get heat set for selected event (tournament)
-
-        file = open('generated.txt', 'wb')
+        file = open("generated" + str(self.file_number) + ".txt", 'wb')
         file.write("===== Biegi =====\n\n".encode("utf-8"))
 
-        if str(heat_set[0]) == "PL":
-            if self.options.currentIndex() % 2 == 0:  # Poland - heat set ver. 1
-                self.writeHeatsFromHeatSet(file, self.options.currentData())
-
-            else:  # Poland - heat set ver. 2
-                self.writeHeatsFromHeatSet(file, self.options.currentData())
-
-            self.writeLineUps(file, self.riders, self.options.currentIndex())
-
-        elif heat_set[0] == "SWE":
-            self.writeHeatsFromHeatSet(file, self.options.currentData())
-            self.writeLineUps(file, self.riders, self.options.currentIndex())
-
-        elif heat_set[0] == "IND":
-            self.writeHeatsFromHeatSet(file, self.options.currentData())
-            self.writeLineUps(file, self.riders, self.options.currentIndex())
+        self.writeHeatsFromHeatSet(file, self.options.currentData())
+        self.writeLineUps(file, self.riders, self.options.currentIndex())
 
         file.close()
+
+        self.file_number += 1
 
         self.messageSuccess()
 
