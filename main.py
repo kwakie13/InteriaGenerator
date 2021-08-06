@@ -63,8 +63,7 @@ class MainWindow(QtWidgets.QWidget):
 
         self.setLayout(grid)
 
-    @staticmethod
-    def team_table(start_num, team_name):  # 0 - away, 1 - host
+    def team_table(self, start_num, team_name):  # 0 - away, 1 - host
         group = QGroupBox()
         team = QGridLayout()
 
@@ -83,6 +82,7 @@ class MainWindow(QtWidgets.QWidget):
         for i in range(8):  # generating edit boxes for team
             button_id = str(start_num + i)
             line = QLineEdit()
+            line.returnPressed.connect(self.generateFile)
             line.setObjectName(button_id)
             MainWindow.saveButton(line)
             line.setAlignment(Qt.AlignCenter)
@@ -125,8 +125,6 @@ class MainWindow(QtWidgets.QWidget):
     def keyPressEvent(self, e):  # exit with Escape button
         if e.key() == Qt.Key_Escape:
             self.close()
-        # elif e.key() == Qt.Key_Enter:
-        #     self.generateFile()
 
     def fetchRiders(self):
         for i in range(1, 17, 1):
